@@ -521,24 +521,31 @@ All charts in the 6SPC system MUST follow these professional medical-grade styli
 
 **Individual Values Plot** (`_create_individual_plot` in `dashboard_generator.py`):
 - Add target line at nominal (USL+LSL)/2 with dot pattern
-- Circle markers with white stroke
+- Circle markers (8px) with white stroke (1.5px)
 - Grid lines enabled
+- USL/LSL: 3px dashed red with bold HTML annotations
 
 **X-bar Control Chart** (`_create_xbar_chart`):
-- Circle markers (size 10px)
-- UCL/LCL: 3px dashed red
+- Circle markers (10px) with white stroke (2px)
+- UCL/LCL: 3px dashed red with bold annotations: `<b>UCL</b>: {value:.4f}`
 - CL: 2.5px solid green
-- Bold annotations: `<b>UCL</b>: {value:.4f}`
+- Connect points with 3px teal line
 
 **R Control Chart** (`_create_r_chart`):
-- Diamond markers (distinct from X-bar)
-- Same line styling as X-bar
-- Only show LCL if > 0
+- Diamond markers (10px for in-control, 12px for out-of-control)
+- Red color for points exceeding UCL/LCL (automatic highlighting)
+- Trend line connecting all points (2.5px teal)
+- Statistics annotation box: R-bar, UCL, LCL, out-of-control count
+- UCL/LCL: 4px dashed red with bold bilingual labels: `<b>上限 UCL</b>: {value:.4f}`
+- CL: 3px solid green with `<b>中心线 CL</b>` label
 
-**Histogram** (`_create_histogram` in `verify_ui.py`):
-- 20 bins with 0.65-0.7 opacity
-- Red normal fit curve (width 2-3px)
-- Vertical USL/LSL lines with dashed pattern
+**Histogram** (`_create_histogram` in `dashboard_generator.py`):
+- 20 bins with 0.7 opacity and 1.5px white bin edges
+- Red normal fit curve (4px width)
+- Vertical USL/LSL: 4px dashed red with bold bilingual labels
+- Rug plot at bottom showing individual data points (8px line-ns markers)
+- Mean line: 2.5px green dotted with `<b>均值 Mean</b>` label
+- Statistics annotation box: mean, std, sample count, OOS counts (>USL, <LSL, total)
 
 **Q-Q Plot** (`_create_qq_plot`):
 - Sample markers: 9px with white stroke
@@ -547,9 +554,20 @@ All charts in the 6SPC system MUST follow these professional medical-grade styli
 
 **Capability Plot** (`_create_capability_plot`):
 - Distribution fill: `rgba(8, 145, 178, 0.15)`
-- Annotation box with white background (0.95 opacity)
-- 2px border in primary color
-- 10px border padding
+- Distribution curve: 3px teal line
+- Out-of-spec regions: Red shaded areas (0.25 opacity)
+- **Y-axis LSL/USL visibility**: Diamond point markers (15px) on curve at LSL/USL x-positions with labels
+- Vertical limit lines: 5px dashed red with bold bilingual labels: `<b>上限 USL</b>: {value}`
+- Target line: 2.5px green dotted at (USL+LSL)/2
+- Mean line: 2.5px green solid at process mean
+- Mean peak marker: 12px green circle on curve
+- **Enhanced annotation box** with:
+  - Capability indices (Cp, Cpk, Pp, Ppk)
+  - PPM defect rates (total, >USL, <LSL)
+  - Process centering percentage
+  - **Spec limits section** showing USL and LSL values prominently
+- Height: 480px (taller for better visibility)
+- Right margin: 60px for annotation display
 
 #### Common Mistakes to Avoid
 
