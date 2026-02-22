@@ -219,7 +219,7 @@ def _create_xbar_chart(subgroups: Dict, stats: Dict) -> str:
 
 
 def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
-    """Create R control chart - Professional styling with enhanced visibility"""
+    """Create R control chart - Professional styling with enhanced visibility and better UI"""
     r_values = subgroups['r']
 
     # Calculate control limits (constants for n=5: D3=0, D4=2.114)
@@ -233,28 +233,47 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
 
     fig = go.Figure()
 
+    # Identify out-of-control points for highlighting
+    ooc_colors = ['#DC2626' if (r > ucl or (lcl > 0 and r < lcl)) else '#0891B2' for r in r_values]
+    ooc_sizes = [12 if (r > ucl or (lcl > 0 and r < lcl)) else 10 for r in r_values]
+
+    # Add R values with enhanced styling and out-of-control highlighting
+    for i, (r, color, size) in enumerate(zip(r_values, ooc_colors, ooc_sizes)):
+        fig.add_trace(go.Scatter(
+            x=[i+1],
+            y=[r],
+            mode='markers',
+            name='<b>超差 Out of Control</b>' if color == '#DC2626' else '<b>受控 In Control</b>',
+            marker=dict(
+                size=size,
+                color=color,
+                line=dict(width=2.5, color='white'),
+                symbol='diamond',
+                opacity=0.95
+            ),
+            hovertemplate=f'<b>Subgroup {i+1}</b><br>Range: {r:.4f}<extra></extra>',
+            showlegend=True if i == 0 or (i == len(r_values)-1 and color == '#DC2626') else False
+        ))
+
+    # Connect points with line
     fig.add_trace(go.Scatter(
+        x=list(range(1, len(r_values)+1)),
         y=r_values,
-        mode='lines+markers',
-        name='R (Range)',
-        line=dict(color='#0891B2', width=3),
-        marker=dict(
-            size=10,
-            color='#0891B2',
-            line=dict(width=2, color='white'),
-            symbol='diamond',
-            opacity=0.9
-        ),
-        hovertemplate='<b>Subgroup %{x}</b>Range: %{y:.4f}<extra></extra>'
+        mode='lines',
+        name='Trend Line',
+        line=dict(color='#0891B2', width=2.5),
+        hoverinfo='skip',
+        showlegend=False
     ))
 
+    # Add control limits with ENHANCED styling
     fig.add_hline(
         y=ucl,
         line_dash="dash",
         line_color="#DC2626",
-        line_width=3,
-        annotation_text=f"<b>UCL</b>: {ucl:.4f}",
-        annotation_font_size=12,
+        line_width=4,
+        annotation_text=f"<b>上限 UCL</b>: {ucl:.4f}",
+        annotation_font_size=13,
         annotation_font_color="#DC2626",
         annotation_font_weight="bold"
     )
@@ -262,8 +281,8 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
         y=cl,
         line_dash="solid",
         line_color="#16A34A",
-        line_width=2.5,
-        annotation_text=f"<b>CL</b>: {cl:.4f}",
+        line_width=3,
+        annotation_text=f"<b>中心线 CL</b>: {cl:.4f}",
         annotation_font_size=12,
         annotation_font_color="#16A34A",
         annotation_font_weight="bold"
@@ -273,12 +292,37 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
             y=lcl,
             line_dash="dash",
             line_color="#DC2626",
-            line_width=3,
-            annotation_text=f"<b>LCL</b>: {lcl:.4f}",
-            annotation_font_size=12,
+            line_width=4,
+            annotation_text=f"<b>下限 LCL</b>: {lcl:.4f}",
+            annotation_font_size=13,
             annotation_font_color="#DC2626",
             annotation_font_weight="bold"
         )
+
+    # Add statistics annotation box
+    ooc_count = sum(1 for r in r_values if r > ucl or (lcl > 0 and r < lcl))
+    stats_text = (
+        f"<b>极差统计 Range Statistics</b><br>"
+        f"══════════════════<br>"
+        f"R-bar: <b>{r_bar:.4f}</b><br>"
+        f"UCL: <b>{ucl:.4f}</b><br>"
+        f"LCL: <b>{lcl:.4f}</b><br>"
+        f"超差点 OOC: <b>{ooc_count}</b>/{len(r_values)}"
+    )
+
+    fig.add_annotation(
+        x=0.98, y=0.98,
+        xref='paper', yref='paper',
+        text=stats_text,
+        showarrow=False,
+        bgcolor='rgba(255, 255, 255, 0.98)',
+        bordercolor='#0891B2',
+        borderwidth=2,
+        borderpad=10,
+        yanchor='top',
+        xanchor='right',
+        font=dict(size=11, color='#1F2937')
+    )
 
     fig.update_layout(
         title=dict(
@@ -305,7 +349,7 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
         font=dict(family='Arial, sans-serif', color='#374151', size=11),
-        margin=dict(l=60, r=30, t=50, b=60),
+        margin=dict(l=60, r=60, t=50, b=60),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -321,20 +365,20 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
 
 
 def _create_histogram(measurements: List[float], usl: float, lsl: float) -> str:
-    """Create histogram with normal distribution fit - Professional styling"""
+    """Create histogram with normal distribution fit - Enhanced with data points and better UI"""
     measurements_arr = np.array(measurements)
     mu, std = np.mean(measurements_arr), np.std(measurements_arr, ddof=1)
 
     fig = go.Figure()
 
-    # Add histogram with improved colors
+    # Add histogram with improved colors and styling
     fig.add_trace(go.Histogram(
         x=measurements,
         nbinsx=20,
         name='实测数据 Measured Data',
         marker_color='#0891B2',
-        opacity=0.65,
-        marker_line=dict(color='white', width=1)
+        opacity=0.7,
+        marker_line=dict(color='white', width=1.5)
     ))
 
     # Add normal distribution curve
@@ -351,35 +395,128 @@ def _create_histogram(measurements: List[float], usl: float, lsl: float) -> str:
         y=y_scaled,
         mode='lines',
         name='正态分布拟合 Normal Fit',
-        line=dict(color='#DC2626', width=3)
+        line=dict(color='#DC2626', width=4)
     ))
 
-    # Add specification limits
-    fig.add_vline(x=usl, line_dash="dash", line_color="#DC2626", line_width=2,
-                  annotation_text=f"USL: {usl}",
-                  annotation_font_size=10, annotation_font_color="#DC2626")
-    fig.add_vline(x=lsl, line_dash="dash", line_color="#DC2626", line_width=2,
-                  annotation_text=f"LSL: {lsl}",
-                  annotation_font_size=10, annotation_font_color="#DC2626")
+    # Add individual data points as rug plot at bottom
+    fig.add_trace(go.Scatter(
+        x=measurements,
+        y=[-0.5] * len(measurements),
+        mode='markers',
+        name='数据点 Data Points',
+        marker=dict(
+            size=8,
+            color='#0891B2',
+            symbol='line-ns',
+            line=dict(width=1, color='white'),
+            opacity=0.6
+        ),
+        hovertemplate='<b>Value</b>: %{x:.4f}<extra></extra>',
+        showlegend=True
+    ))
+
+    # Add specification limits with ENHANCED styling
+    # Highlight out-of-spec regions with colored bars
+    oos_above = sum(1 for m in measurements if m > usl)
+    oos_below = sum(1 for m in measurements if m < lsl)
+
+    fig.add_vline(
+        x=usl,
+        line_dash="dash",
+        line_color="#DC2626",
+        line_width=4,
+        annotation_text=f"<b>上限 USL</b>: {usl}",
+        annotation_position="top right",
+        annotation_font_size=13,
+        annotation_font_color="#DC2626",
+        annotation_font_weight="bold"
+    )
+    fig.add_vline(
+        x=lsl,
+        line_dash="dash",
+        line_color="#DC2626",
+        line_width=4,
+        annotation_text=f"<b>下限 LSL</b>: {lsl}",
+        annotation_position="top left",
+        annotation_font_size=13,
+        annotation_font_color="#DC2626",
+        annotation_font_weight="bold"
+    )
+
+    # Add mean line
+    fig.add_vline(
+        x=mu,
+        line_dash="dot",
+        line_color="#16A34A",
+        line_width=2.5,
+        annotation_text=f"<b>均值 Mean</b>: {mu:.4f}",
+        annotation_position="bottom",
+        annotation_font_size=11,
+        annotation_font_color="#16A34A",
+        annotation_font_weight="bold"
+    )
+
+    # Add statistics annotation box
+    stats_text = (
+        f"<b>分布统计 Distribution Stats</b><br>"
+        f"══════════════════════<br>"
+        f"均值 Mean: <b>{mu:.4f}</b><br>"
+        f"标准差 Std: <b>{std:.4f}</b><br>"
+        f"样本数 n: <b>{len(measurements)}</b><br>"
+        f"<br>"
+        f"<b>超差统计 OOS Count</b><br>"
+        f"══════════════════════<br>"
+        f">USL: <b>{oos_above}</b>   "
+        f"<LSL: <b>{oos_below}</b><br>"
+        f"总计 Total: <b>{oos_above + oos_below}</b>"
+    )
+
+    fig.add_annotation(
+        x=0.98, y=0.98,
+        xref='paper', yref='paper',
+        text=stats_text,
+        showarrow=False,
+        bgcolor='rgba(255, 255, 255, 0.98)',
+        bordercolor='#0891B2',
+        borderwidth=2,
+        borderpad=10,
+        yanchor='top',
+        xanchor='right',
+        font=dict(size=11, color='#1F2937')
+    )
 
     fig.update_layout(
         title=dict(
             text="4. Histogram with Normal Fit (直方图+正态拟合)",
-            font=dict(size=15, color='#1F2937', family='Arial, sans-serif')
+            font=dict(size=16, color='#1F2937', family='Arial, sans-serif', weight='bold')
         ),
         xaxis=dict(
-            title=dict(text="测量值 Measured Value", font=dict(size=12)),
-            showgrid=True, gridcolor='rgba(0,0,0,0.05)'
+            title=dict(text="测量值 Measured Value", font=dict(size=13, weight='bold')),
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.08)',
+            gridwidth=1
         ),
         yaxis=dict(
-            title=dict(text="频数 Frequency", font=dict(size=12)),
-            showgrid=True, gridcolor='rgba(0,0,0,0.05)'
+            title=dict(text="频数 Frequency", font=dict(size=13, weight='bold')),
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.08)',
+            gridwidth=1
         ),
         barmode='overlay',
-        height=420,
+        height=450,
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
-        font=dict(family='Arial, sans-serif', color='#374151')
+        margin=dict(l=60, r=60, t=50, b=60),
+        font=dict(family='Arial, sans-serif', color='#374151', size=11),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=10)
+        )
     )
 
     return fig.to_html(full_html=False, include_plotlyjs='cdn')
@@ -445,7 +582,7 @@ def _create_qq_plot(measurements: List[float]) -> str:
 
 
 def _create_capability_plot(measurements: List[float], usl: float, lsl: float, stats: Dict) -> str:
-    """Create capability plot with distribution and limits - Enhanced styling with visible limits"""
+    """Create capability plot with distribution and limits - Enhanced with prominent LSL/USL labels"""
     measurements_arr = np.array(measurements)
     mu, std = np.mean(measurements_arr), np.std(measurements_arr, ddof=1)
 
@@ -498,15 +635,19 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         showlegend=True
     ))
 
-    # Add specification limits with ENHANCED styling
+    # Calculate y values at specification limits for reference
+    y_at_usl = ((1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((usl - mu) / std) ** 2))
+    y_at_lsl = ((1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((lsl - mu) / std) ** 2))
+
+    # Add specification limits with ENHANCED styling - both vertical and point markers
     fig.add_vline(
         x=usl,
         line_dash="dash",
         line_color="#DC2626",
-        line_width=4,
+        line_width=5,
         annotation_text=f"<b>上限 USL</b>: {usl}",
         annotation_position="top right",
-        annotation_font_size=13,
+        annotation_font_size=14,
         annotation_font_color="#DC2626",
         annotation_font_weight="bold",
         annotation_textangle=0
@@ -515,17 +656,46 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         x=lsl,
         line_dash="dash",
         line_color="#DC2626",
-        line_width=4,
+        line_width=5,
         annotation_text=f"<b>下限 LSL</b>: {lsl}",
         annotation_position="top left",
-        annotation_font_size=13,
+        annotation_font_size=14,
         annotation_font_color="#DC2626",
         annotation_font_weight="bold",
         annotation_textangle=0
     )
 
+    # Add point markers on the curve at LSL and USL positions for y-axis visibility
+    fig.add_trace(go.Scatter(
+        x=[usl],
+        y=[y_at_usl],
+        mode='markers+text',
+        name='<b>USL位置</b>',
+        marker=dict(size=15, color='#DC2626', symbol='diamond', line=dict(width=2, color='white')),
+        text=['<b>USL</b>'],
+        textposition='top center',
+        textfont=dict(size=11, color='#DC2626', family='Arial, sans-serif'),
+        showlegend=True,
+        hovertemplate=f'<b>USL</b>: {usl}<br>Y: {y_at_usl:.4f}<extra></extra>'
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=[lsl],
+        y=[y_at_lsl],
+        mode='markers+text',
+        name='<b>LSL位置</b>',
+        marker=dict(size=15, color='#DC2626', symbol='diamond', line=dict(width=2, color='white')),
+        text=['<b>LSL</b>'],
+        textposition='top center',
+        textfont=dict(size=11, color='#DC2626', family='Arial, sans-serif'),
+        showlegend=True,
+        hovertemplate=f'<b>LSL</b>: {lsl}<br>Y: {y_at_lsl:.4f}<extra></extra>'
+    ))
+
     # Add target/nominal line (center of specification)
     target = (usl + lsl) / 2
+    y_at_target = ((1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((target - mu) / std) ** 2))
+
     fig.add_vline(
         x=target,
         line_dash="dot",
@@ -539,6 +709,8 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
     )
 
     # Add mean line
+    y_at_mean = ((1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((mu - mu) / std) ** 2))
+
     fig.add_vline(
         x=mu,
         line_dash="solid",
@@ -550,6 +722,17 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         annotation_font_color="#16A34A",
         annotation_font_weight="bold"
     )
+
+    # Add mean marker on curve
+    fig.add_trace(go.Scatter(
+        x=[mu],
+        y=[y_at_mean],
+        mode='markers',
+        name='<b>均值峰值</b>',
+        marker=dict(size=12, color='#16A34A', symbol='circle', line=dict(width=2, color='white')),
+        showlegend=True,
+        hovertemplate=f'<b>Mean Peak</b><br>X: {mu:.4f}<br>Y: {y_at_mean:.4f}<extra></extra>'
+    ))
 
     # Calculate PPM
     ppm_above = ((measurements_arr > usl).sum() / len(measurements_arr)) * 1e6
@@ -575,7 +758,12 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         f">USL: <b>{ppm_above:.0f}</b>   "
         f"<LSL: <b>{ppm_below:.0f}</b><br>"
         f"<br>"
-        f"<b>规格中心ing: {centering:+.1f}%</b>"
+        f"<b>规格中心ing: {centering:+.1f}%</b><br>"
+        f"<br>"
+        f"<b>规格限值 Spec Limits</b><br>"
+        f"══════════════════════<br>"
+        f"USL: <b>{usl:.4f}</b><br>"
+        f"LSL: <b>{lsl:.4f}</b>"
     )
 
     fig.add_annotation(
@@ -616,7 +804,7 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
             gridcolor='rgba(0,0,0,0.08)',
             gridwidth=1
         ),
-        height=450,
+        height=480,
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
         margin=dict(l=60, r=60, t=60, b=60),
