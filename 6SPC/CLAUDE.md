@@ -56,6 +56,151 @@ Report Export (HTML/Excel/History)
 
 ### Core Components
 
+#### 5. **AnalysisEngine** (`src/analysis_engine.py`)
+AI-powered analysis engine for plastic injection hot runner process control.
+
+**Purpose**: Generates intelligent insights and improvement recommendations based on SPC data.
+
+**Key Class: `PlasticInjectionAnalyzer`**
+- `analyze_dimension(dim_data, stats)`: Returns comprehensive analysis including:
+  - Status rating (EXCELLENT/GOOD/ACCEPTABLE/NEEDS_IMPROVEMENT/CRITICAL)
+  - Risk level (LOW/MEDIUM/HIGH/CRITICAL)
+  - Overall assessment (bilingual Chinese/English)
+  - Capability analysis (Cp vs Cpk, centering, potential vs overall)
+  - Stability analysis (within vs overall variation, drift detection)
+  - Improvement actions (specific to hot runner systems)
+  - Hot runner tips (temperature control,浇口, timing, etc.)
+
+- `generate_executive_summary(analyses)`: Aggregates analysis across all dimensions
+
+**Thresholds**:
+- EXCELLENT: Cpk ≥ 1.67, PPM ≤ 100
+- GOOD: Cpk ≥ 1.33, PPM ≤ 1,000
+- ACCEPTABLE: Cpk ≥ 1.00, PPM ≤ 10,000
+- CRITICAL: Cpk < 1.0 or PPM > 50,000
+
+**Usage**: Used by `dashboard_generator.py` to provide AI-powered insights in HTML reports
+
+#### 6. **DashboardGenerator** (`src/dashboard_generator.py`)
+Professional HTML report generator with tabbed interface for ISO 13485 compliance.
+
+**Key Function: `generate_professional_dashboard(dim_data, stats_list)`**
+- Generates multi-tab HTML reports with executive summary
+- Creates all 6 SPC charts with enhanced medical-grade styling
+- Includes AI-powered analysis from `PlasticInjectionAnalyzer`
+- Saves to `reports/` directory with timestamp filename
+
+**Chart Functions** (see "Chart Generation Best Practices" section):
+- `_create_individual_plot()`: Line plot with target/nominal line
+- `_create_xbar_chart()`: X-bar control chart with UCL/CL/LCL
+- `_create_r_chart()`: R control chart with diamond markers
+- `_create_histogram()`: Histogram with normal fit
+- `_create_qq_plot()`: Q-Q plot for normality assessment
+- `_create_capability_plot()`: Distribution curve with PPM calculations
+
+**HTML Features**:
+- Tabbed navigation (Executive Summary + per-dimension tabs)
+- Print-friendly styling (Ctrl+P for PDF export)
+- Interactive Plotly charts via CDN
+- Bilingual labels (Chinese + English)
+- Responsive design
+
+**Report Storage**: HTML reports saved to `reports/` directory (auto-created)
+
+---
+
+### Dual Chart System Architecture
+
+The system has TWO separate chart generation approaches:
+
+#### 1. Streamlit Dashboard Charts (`verify_ui.py` lines 35-235)
+- **Purpose**: Interactive real-time charts in Streamlit UI
+- **Location**: Helper functions defined at top of `verify_ui.py`
+- **Return Type**: Plotly Figure objects (`go.Figure()`)
+- **Usage**: Displayed via `st.plotly_chart()`
+- **Interactivity**: Full Plotly interactivity, zoom, pan, hover
+
+#### 2. HTML Export Charts (`dashboard_generator.py`)
+- **Purpose**: Static charts in generated HTML reports
+- **Location**: Separate module for HTML report generation
+- **Return Type**: HTML strings (`fig.to_html(full_html=False, include_plotlyjs='cdn')`)
+- **Usage**: Embedded in HTML template for export/print
+- **Interactivity**: Preserved via Plotly CDN in HTML
+
+**Key Difference**:
+```python
+# Streamlit version (verify_ui.py)
+def create_histogram(data, title, usl, lsl, mean):
+    fig = go.Figure()
+    # ... build chart ...
+    return fig  # Return Plotly Figure object
+
+# HTML export version (dashboard_generator.py)
+def _create_histogram(measurements, usl, lsl):
+    fig = go.Figure()
+    # ... build chart ...
+    return fig.to_html(full_html=False, include_plotlyjs='cdn')  # Return HTML string
+```
+
+**When to Use Which**:
+- Use `verify_ui.py` charts for: Real-time interactive dashboard
+- Use `dashboard_generator.py` charts for: Final HTML report generation and export
+
+---
+
+### Component Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    User Upload Scan                             │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+                ┌─────────────────────────────┐
+                │   OCRService (ocr_service)   │
+                │   - Extract measurements    │
+                │   - Parse markdown tables   │
+                │   - Multi-dimension detect  │
+                └──────────────┬──────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+          ┌──────────────────┐   ┌─────────────────┐
+          │ SPCEngine        │   │ Utils.py        │
+          │ - Calculate      │   │ - Corrections  │
+          │   Cp/Cpk/Pp/Ppk  │   │ - Outlier detect│
+          │ - Subgroup data  │   │ - Normality test│
+          └────────┬─────────┘   └────────┬─────────┘
+                   │                     │
+                   └──────────┬──────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    ▼                   ▼
+          ┌─────────────────┐  ┌──────────────────┐
+          │ verify_ui.py    │  │ AnalysisEngine   │
+          │ - Interactive   │  │ - AI insights    │
+          │   dashboard     │  │ - Recommendations│
+          │ - Edit data     │  └────────┬─────────┘
+          │ - View charts   │           │
+          └────────┬────────┘           │
+                   │                    │
+                   └────────┬───────────┘
+                            │
+                ┌───────────┴───────────┐
+                ▼                       ▼
+    ┌───────────────────┐   ┌─────────────────────┐
+    │ Streamlit Display │   │ DashboardGenerator  │
+    │ (Real-time)       │   │ - Generate HTML     │
+    │ - 6 interactive   │   │ - Embed charts      │
+    │   charts          │   │ - Add AI analysis   │
+    │ - Edit/Export     │   │ - Save to reports/  │
+    └───────────────────┘   └─────────────────────┘
+```
+
+---
+
+### Core Components
+
 #### 1. **OCRService** (`src/ocr_service.py`)
 MinerU API v4 client wrapper with graceful degradation.
 
@@ -314,6 +459,126 @@ python3 -m streamlit run src/verify_ui.py
 - **Unit tests**: `sample_scan.pdf` (project root)
 - **Real scans**: `Scan PDF/` directory
 - **History tests**: `reports_history/` (auto-created on first save)
+
+## Chart Generation Best Practices
+
+### 6 SPC Chart Styling Standards
+
+All charts in the 6SPC system MUST follow these professional medical-grade styling standards:
+
+#### Visual Enhancements
+- **Data Point Visibility**:
+  - Marker size: 8-10px (not 7px or smaller)
+  - Use white stroke around markers: `line=dict(width=2, color='white')`
+  - Marker opacity: 0.85-0.9 for better visual hierarchy
+  - Use distinct symbols: circles for individual, diamonds for R chart
+
+- **Line Styling**:
+  - Main data line width: 3px (not 2.5px)
+  - Control limit lines (UCL/LCL): 3px dashed red
+  - Center line (CL): 2.5px solid green
+  - Grid lines: 1px with 0.08 opacity
+
+- **Label & Typography**:
+  - Title font size: 16px with bold weight
+  - Axis label font size: 13px with bold weight
+  - Annotation font size: 12px with bold weight
+  - General font size: 11px
+  - Use HTML bold tags in annotations: `<b>UCL</b>: 1.234`
+
+- **Layout & Spacing**:
+  - Chart height: 450px (not 420px)
+  - Margins: `dict(l=60, r=30, t=50, b=60)` for proper label display
+  - Grid color: `rgba(0,0,0,0.08)` for subtle visibility
+  - Zero line: 1.5px gray for axis reference
+
+- **Interactive Hover Templates**:
+  ```python
+  hovertemplate='<b>Sample %{x}</b><br>Value: %{y:.4f}<extra></extra>'
+  ```
+
+- **Legend Position**:
+  ```python
+  legend=dict(
+      orientation="h",
+      yanchor="bottom",
+      y=1.02,
+      xanchor="right",
+      x=1,
+      font=dict(size=11)
+  )
+  ```
+
+#### Color Scheme (Medical-Grade)
+- Primary data: `#0891B2` (teal/cyan)
+- UCL/LCL limits: `#DC2626` (red)
+- Center/Target: `#16A34A` (green) or `#22C55E`
+- Background: `rgba(255, 255, 255, 0.98)`
+- Paper: `white`
+- Text: `#374151` (dark gray, not pure black)
+
+#### Chart-Specific Requirements
+
+**Individual Values Plot** (`_create_individual_plot` in `dashboard_generator.py`):
+- Add target line at nominal (USL+LSL)/2 with dot pattern
+- Circle markers with white stroke
+- Grid lines enabled
+
+**X-bar Control Chart** (`_create_xbar_chart`):
+- Circle markers (size 10px)
+- UCL/LCL: 3px dashed red
+- CL: 2.5px solid green
+- Bold annotations: `<b>UCL</b>: {value:.4f}`
+
+**R Control Chart** (`_create_r_chart`):
+- Diamond markers (distinct from X-bar)
+- Same line styling as X-bar
+- Only show LCL if > 0
+
+**Histogram** (`_create_histogram` in `verify_ui.py`):
+- 20 bins with 0.65-0.7 opacity
+- Red normal fit curve (width 2-3px)
+- Vertical USL/LSL lines with dashed pattern
+
+**Q-Q Plot** (`_create_qq_plot`):
+- Sample markers: 9px with white stroke
+- Reference line: 2.5px red dashed
+- Zero lines on both axes
+
+**Capability Plot** (`_create_capability_plot`):
+- Distribution fill: `rgba(8, 145, 178, 0.15)`
+- Annotation box with white background (0.95 opacity)
+- 2px border in primary color
+- 10px border padding
+
+#### Common Mistakes to Avoid
+
+❌ **WRONG**:
+```python
+marker=dict(size=7, color='#0891B2')  # Too small, no contrast
+line=dict(width=2, dash='dash')      # Too thin, hard to see
+annotation_text=f"UCL: {ucl}"        # Not bold, hard to read
+height=420                            # Too cramped
+```
+
+✅ **CORRECT**:
+```python
+marker=dict(size=10, color='#0891B2', line=dict(width=2, color='white'), opacity=0.9)
+line=dict(width=3, dash='dash')
+annotation_text=f"<b>UCL</b>: {ucl:.4f}"
+height=450
+```
+
+#### Dashboard Generator Chart Functions
+
+When creating charts for HTML dashboard export in `src/dashboard_generator.py`:
+
+1. Always return `fig.to_html(full_html=False, include_plotlyjs='cdn')`
+2. Use consistent styling across all 6 SPC charts
+3. Apply the medical-grade color scheme
+4. Ensure proper spacing with margins
+5. Add interactive hover templates for better UX
+6. Use bilingual labels (Chinese + English) for all text elements
 
 ## Common Issues
 
